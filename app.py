@@ -37,7 +37,7 @@ available_years = cleaned_trade_data['year'].unique()
 slider_marks = {str(year): '' for year in available_years}
 
 app = Dash(__name__)
-
+server = app.server
 app.layout = html.Div([
     dcc.Dropdown(
         options=[
