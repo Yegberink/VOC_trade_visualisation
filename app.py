@@ -19,28 +19,46 @@ import matplotlib
 #Load data
 cleaned_trade_data = pd.read_csv("cleaned_trade_data.csv")
 
-# Specify a suffix for the value
+# Step 2. Specify a column for the flow volume value
 value_suffix = "tonne"
 
-# Customize layout, font, and colors
+# Step 4. (Optional) Customize layout, font, and colors
 fontsize = 14  # Set font size of labels
 fontfamily = "Helvetica"  # Set font family of plot's text
-bgcolor = "SeaShell"  # Set the plot's background color (use color name or hex code)
+bgcolor = "white"  # Set the plot's background color (use color name or hex code)
 link_opacity = 0.3  # Set a value from 0 to 1: the lower, the more transparent the links
 node_colors = px.colors.qualitative.G10  # Define a list of hex color codes for nodes
 
-
-cols = ['departure_region', 'arrival_region']  # Define the columns to use
+cols = ['departure_region', 'arrival_region']  # Define the columns you want to use
 weight = "weight_tonnes"
+
+# Create a unique list of all nodes across the entire dataset
+all_nodes = np.unique(cleaned_trade_data[cols].values)
+
+# Map each unique node to a specific color
+color_mapping = {node: color for node, color in zip(all_nodes, node_colors * (len(all_nodes) // len(node_colors) + 1))}
+
+# Manually update the color of specific nodes
+color_mapping['Batavia'] = 'red'  # Change Batavia to blue
 
 available_years = cleaned_trade_data['year'].unique()
 slider_marks = {str(year): '' for year in available_years}
 
 app = Dash(__name__)
-server = app.server
+
 app.layout = html.Div([
-    dcc.Dropdown(
-        options=[
+    html.Div([
+        html.H1("VOC Trade Flow Analysis", style={'fontFamily': 'Helvetica', 'fontSize': '32px'}),
+        html.P([
+            "This dashboard provides a visual representation of the trade flows in the VOC (Dutch East India Company) using a Sankey diagram. Explore the trade patterns by selecting a product and year. The tool was developed for the master's thesis of Yannick Egberink (2024) and is based on data from the ",
+            html.A("Huygens Institute", href="https://resources.huygens.knaw.nl/das", target="_blank", style={'fontFamily': 'Helvetica', 'fontSize': '18px'}),
+            "."
+        ], style={'fontFamily': 'Helvetica', 'fontSize': '18px'})
+    ], style={'textAlign': 'center', 'marginBottom': '20px', 'marginLeft': '10%', 'marginRight': '10%'}),
+
+    html.Div(
+        dcc.Dropdown(
+            options=[
                 {"label": "Tea", "value": "Tea"},
                 {"label": "Silk", "value": "Silk"},
                 {"label": "Cloves", "value": "Cloves"},
@@ -52,26 +70,30 @@ app.layout = html.Div([
                 {"label": "Opium", "value": "Opium"}
             ],
             value='Pepper',
-            id='dropdown-selection'
+            id='dropdown-selection',
+            style={'width': '100%', 'fontFamily': 'Helvetica'}
+        ),
+        style={'display': 'flex', 'justifyContent': 'center', 'marginLeft': '5%', 'marginRight': '5%', 'width': '90%'}
     ),
-    
-    html.Br(),
-    
+        
     dcc.Graph(id='graph-content'),
-    html.Br(),
-    html.Br(),
-    dcc.Slider(
-        id='year-slider',
-        min=min(available_years),
-        max=max(available_years),
-        step=1,
-        value=min(available_years),  # Set initial value to the minimum year
-        marks=slider_marks,
-        tooltip={
-        "always_visible": True,
-        "style": {"color": "LightSteelBlue", "fontSize": "20px"},
-    }
-)
+
+    html.Div(
+        dcc.Slider(
+            id='year-slider',
+            min=min(available_years),
+            max=max(available_years),
+            step=1,
+            value=min(available_years),  # Set initial value to the minimum year
+            marks=slider_marks,
+            tooltip={
+                "always_visible": True,
+                "style": {"color": "LightSteelBlue", "fontSize": "20px", 'fontFamily': 'Helvetica'}
+            }
+        ),
+        style={'marginLeft': '5%', 'marginRight': '5%'}
+    )
+
 ])
 
 @app.callback(
@@ -94,15 +116,12 @@ def update_graph(selected_product, selected_year):
     
     if df.empty:
         fig = go.Figure()
-        fig.update_layout(title='No data')
+        fig.update_layout(title='No data for this year, please select another year using the slider below.')
         
         # If DataFrame is empty, return a warning message or placeholder figure
-        
         return fig, slider_marks
     
-    
     else:
-        
         s = []  # This will hold the source nodes
         t = []  # This will hold the target nodes
         v = []  # This will hold the flow volumes between the source and target nodes
@@ -116,26 +135,13 @@ def update_graph(selected_product, selected_year):
         links = pd.DataFrame({"source": s, "target": t, "weight": v})  
         links = links.groupby(["source", "target"], as_index=False).agg({"weight": "sum"})
 
-        # Convert list of colors to RGB format to override default gray link colors
-        colors = [matplotlib.colors.to_rgb(i) for i in node_colors]  
-
-        # Create objects to hold node/label and link colors
-        label_colors, links["link_c"] = [], 0
-
-        # Loop through all the labels to specify color and to use label indices
-        c, max_colors = 0, len(colors)  # To loop through the colors array
-        for l in range(len(labels)):
-            label_colors.append(colors[c])
-            link_color = colors[c] + (link_opacity,)  # Make link more transparent than the node
-            links.loc[links.source == labels[l], ["link_c"]] = "rgba" + str(link_color)
-            links = links.replace({labels[l]: l})  # Replace node labels with the label's index
-            if c == max_colors - 1:
-                c = 0
-            else:
-                c += 1
-
+        # Apply the fixed color mapping with opacity
+        links["link_c"] = links["source"].map(lambda x: matplotlib.colors.to_rgba(color_mapping[x], link_opacity))
+        
         # Convert colors into RGB string format for Plotly
-        label_colors = ["rgb" + str(i) for i in label_colors]
+        label_colors = [matplotlib.colors.to_rgb(color_mapping[label]) for label in labels]
+        label_colors = ["rgb" + str(color) for color in label_colors]
+        links["link_c"] = links["link_c"].apply(lambda x: f'rgba({x[0]*255}, {x[1]*255}, {x[2]*255}, {x[3]})')
 
         # Define a Plotly Sankey diagram
         fig = go.Figure( 
@@ -144,8 +150,8 @@ def update_graph(selected_product, selected_year):
                     valuesuffix=value_suffix,
                     node=dict(label=labels, color=label_colors),
                     link=dict(
-                        source=links["source"],
-                        target=links["target"],
+                        source=links["source"].map(lambda x: labels.tolist().index(x)),
+                        target=links["target"].map(lambda x: labels.tolist().index(x)),
                         value=links["weight"],
                         color=links["link_c"],
                     ),
@@ -155,10 +161,9 @@ def update_graph(selected_product, selected_year):
 
         # Customize plot based on earlier values
         fig.update_layout(
-            title_text = f"Sankey diagram of trade flows in the VOC for {selected_product} in {selected_year}",
+            #title_text = f"Sankey diagram of trade flows in the VOC for {selected_product} in {selected_year}",
             font_size=fontsize,
             font_family=fontfamily,
-            width=1200,
             height=600,
             paper_bgcolor=bgcolor,
             title={"y": 0.9, "x": 0.5, "xanchor": "center", "yanchor": "top"},  # Centers title
@@ -167,4 +172,4 @@ def update_graph(selected_product, selected_year):
         return fig, slider_marks
 
 if __name__ == '__main__':
-    app.run(jupyter_mode="external", port=8090)
+    app.run(jupyter_mode="external", port=8091)
