@@ -19,18 +19,19 @@ import matplotlib
 #Load data
 cleaned_trade_data = pd.read_csv("cleaned_trade_data.csv")
 
-# Step 2. Specify a column for the flow volume value
+# Specify the value suffix (unit)
 value_suffix = "tonne"
 
-# Step 4. (Optional) Customize layout, font, and colors
+# Customize layout, font, and colors
 fontsize = 14  # Set font size of labels
 fontfamily = "Helvetica"  # Set font family of plot's text
 bgcolor = "white"  # Set the plot's background color (use color name or hex code)
 link_opacity = 0.3  # Set a value from 0 to 1: the lower, the more transparent the links
 node_colors = px.colors.qualitative.G10  # Define a list of hex color codes for nodes
 
-cols = ['departure_region', 'arrival_region']  # Define the columns you want to use
-weight = "weight_tonnes"
+#Define the data to use
+cols = ['departure_region', 'arrival_region']  # Define the columns to use for the values of the nodes
+weight = "weight_tonnes" #Define the column for the weight
 
 # Create a unique list of all nodes across the entire dataset
 all_nodes = np.unique(cleaned_trade_data[cols].values)
@@ -39,14 +40,20 @@ all_nodes = np.unique(cleaned_trade_data[cols].values)
 color_mapping = {node: color for node, color in zip(all_nodes, node_colors * (len(all_nodes) // len(node_colors) + 1))}
 
 # Manually update the color of specific nodes
-color_mapping['Batavia'] = 'red'  # Change Batavia to blue
+color_mapping['Batavia'] = 'red'  # Change Batavia to blue for better visibility
 
 available_years = cleaned_trade_data['year'].unique()
 slider_marks = {str(year): '' for year in available_years}
 
+#Initiate dash app
 app = Dash(__name__)
 
+#Define the server for render
+server = app.server
+
+#Define layoyt of the app
 app.layout = html.Div([
+    #Add title and a description
     html.Div([
         html.H1("VOC Trade Flow Analysis", style={'fontFamily': 'Helvetica', 'fontSize': '32px'}),
         html.P([
@@ -56,6 +63,7 @@ app.layout = html.Div([
         ], style={'fontFamily': 'Helvetica', 'fontSize': '18px'})
     ], style={'textAlign': 'center', 'marginBottom': '20px', 'marginLeft': '10%', 'marginRight': '10%'}),
 
+    #Add a dropdown menu
     html.Div(
         dcc.Dropdown(
             options=[
@@ -75,9 +83,11 @@ app.layout = html.Div([
         ),
         style={'display': 'flex', 'justifyContent': 'center', 'marginLeft': '5%', 'marginRight': '5%', 'width': '90%'}
     ),
-        
+
+    #Add the graph
     dcc.Graph(id='graph-content'),
 
+    # add sankey diagram
     html.Div(
         dcc.Slider(
             id='year-slider',
@@ -96,6 +106,7 @@ app.layout = html.Div([
 
 ])
 
+#Define callback function
 @app.callback(
     [Output('graph-content', 'figure'),
      Output('year-slider', 'marks')],
@@ -103,9 +114,13 @@ app.layout = html.Div([
      Input('year-slider', 'value')]
 )
 
+#Define function for the callback
 def update_graph(selected_product, selected_year):
+
+    #Filter the dataframe on the selected product
     df_allyears = cleaned_trade_data[cleaned_trade_data["product_category"]==selected_product]
-       
+
+    #Filter the dataframe on the selected year
     df = df_allyears[df_allyears["year"] == selected_year]
 
     # Get unique years for the selected commodity
@@ -113,14 +128,16 @@ def update_graph(selected_product, selected_year):
 
     # Generate marks for the slider based on available years
     slider_marks = {str(year): '' for year in available_years}
-    
+
+    #Add if statement to return an empty placeholder with the prompt to select another year
     if df.empty:
         fig = go.Figure()
         fig.update_layout(title='No data for this year, please select another year using the slider below.')
         
         # If DataFrame is empty, return a warning message or placeholder figure
         return fig, slider_marks
-    
+
+    #Else create the sankey diagram
     else:
         s = []  # This will hold the source nodes
         t = []  # This will hold the target nodes
