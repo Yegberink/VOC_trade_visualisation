@@ -57,7 +57,7 @@ app.layout = html.Div([
     html.Div([
         html.H1("VOC Trade Flow Analysis", style={'fontFamily': 'Helvetica', 'fontSize': '32px'}),
         html.P([
-            "This dashboard provides a visual representation of the trade flows in the VOC (Dutch East India Company) using a Sankey diagram. Explore the trade patterns by selecting a product and year. The tool was developed for the master's thesis of Yannick Egberink (2024) and is based on data from the ",
+            "This dashboard provides a visual representation of the trade flows in the VOC (Dutch East India Company) using a Sankey diagram. Explore the trade patterns by selecting a product and year. Hover over the flows to see the quantity of the flow. The tool was developed for the master's thesis of Yannick Egberink (2024) and is based on data from the ",
             html.A("Huygens Institute", href="https://resources.huygens.knaw.nl/das", target="_blank", style={'fontFamily': 'Helvetica', 'fontSize': '18px'}),
             "."
         ], style={'fontFamily': 'Helvetica', 'fontSize': '18px'})
